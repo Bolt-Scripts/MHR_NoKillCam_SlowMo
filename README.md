@@ -1,4 +1,4 @@
-# MHR_NoKillCam_SlowMo
+# MHR NoKillCam Plus SlowMo Mod
  
 I had an idea, so I did it, and it's pretty cool.
 
