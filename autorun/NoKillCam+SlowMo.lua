@@ -78,7 +78,6 @@ function GetShouldUseSlowMo()
 		lobbyManager = sdk.get_managed_singleton("snow.LobbyManager");
 	end
 	
-	re.msg(lobbyManager:call("IsQuestOnline")  and "online" or "not online");
 	if not useSlowMoInMP and lobbyManager:call("IsQuestOnline") then		
 		return false;
 	end	
