@@ -28,8 +28,6 @@ local useSlowMoThisTime = false;
 local slowMoStartTime = 0;
 local curTimeScale = 1.0;
 
-local wasUiVisible = false;
-
 local app_type = sdk.find_type_definition("via.Application");
 local get_UpTimeSecond = app_type:get_method("get_UpTimeSecond");
 local get_ElapsedSecond = app_type:get_method("get_ElapsedSecond");
@@ -49,10 +47,6 @@ function SetInvisibleUI(value)
 
 	if not disableUiOnKill then
 		return;
-	end
-	
-	if value then
-		wasUiVisible = GetGuiManager():get_field("InvisibleAllGUI");
 	end
 	
 	GetGuiManager():set_field("InvisibleAllGUI", value);
@@ -107,7 +101,7 @@ end
 function EndSlowMo()
 	curTimeScale = 1.0;
 	isSlowMo = false;
-	SetInvisibleUI(wasUiVisible);
+	SetInvisibleUI(false);
 end
 
 local hwKB = nil
@@ -143,6 +137,10 @@ function HandleSlowMo()
 	if CheckSlowMoSkip() then
 		curTimeScale = 2;
 		EndSlowMo();
+		
+		--if we dont make sure this is a float(1.0 instead of 1),
+		--for some reason setting timescale to (int)1 actually freezes everything to zero
+		--its bizarre especially as i was led to believe that lua used only floats anyway but w/e
 		SetTimeScale(1.0);
 		return;
 	end
@@ -152,9 +150,6 @@ function HandleSlowMo()
 	elseif curTime - slowMoStartTime > slowMoDuration then
 		curTimeScale = curTimeScale + slowMoRamp * GetDeltaTime();
 		if curTimeScale >= 1 then
-			--if we dont make sure this is a float(1.0 instead of 1),
-			--for some reason setting timescale to (int)1 actually freezes everything to zero
-			--its bizarre especially as i was led to believe that lua used only floats anyway but w/e
 			EndSlowMo();
 		end
 	end
@@ -180,7 +175,7 @@ function PreRequestCamChange(args)
 		--idk, this was just the first value i found that actually changes the instant you complete the quest
 		local endCapture = manager:get_field("_EndCaptureFlag");
 		
-		if endFlow <= 1 and endCapture == 2 then		
+		if endFlow <= 1 and endCapture == 2 then
 			
 			StartSlowMo();
 			
@@ -197,6 +192,14 @@ end
 
 function PostRequestCamChange(ret)
 	return ret;
+end
+
+function PreC(args)
+	return sdk.PreHookResult.SKIP_ORIGINAL;
+end
+function PostC(ret)
+	re.msg("t");
+	return nil;
 end
 
 function CheckHook()
@@ -231,7 +234,7 @@ re.on_draw_ui(function()
 		  changed, slowMoDuration = imgui.slider_float("SlowMo Duration", slowMoDuration, 0.01, 30.0);
 		  changed, slowMoRamp = imgui.slider_float("SlowMo Ramp", slowMoRamp, 0.1, 10);
 		  
-		  --[[
+		  ---[[
 		  --debug
 		  changed, hooked = imgui.checkbox("hooked", hooked);
 		  changed, isSlowMo = imgui.checkbox("isSlowMo", isSlowMo);
