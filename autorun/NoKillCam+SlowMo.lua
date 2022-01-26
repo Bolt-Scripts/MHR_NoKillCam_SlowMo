@@ -15,6 +15,11 @@ local slowMoSpeed = 0.2; --Slow mo amount in percentage of realtime. 0.2 = 20% s
 local slowMoDuration = 5; --Slow mo duration in seconds
 local slowMoRamp = 1.5; --Speed at which it transitions back to normal time after the slow mo duration has elapsed
 
+local activateForAllMonsters = true; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
+local activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
+local activateByEnemies = false; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
+local activateOnCapture = false; --will trigger slowmo/hide ui when capturing the monster
+
 --skip slow mo keys
 local padAnimSkipBtn = 32768 -- persistent start button on controller
 local kbAnimSkipKey = 27 -- persistent escape key. 32 = spacebar
@@ -27,6 +32,8 @@ local isSlowMo = false;
 local useSlowMoThisTime = false;
 local slowMoStartTime = 0;
 local curTimeScale = 1.0;
+local lastHitPlayerIdx = 0;
+local lastHitEnemy = nil;
 
 local app_type = sdk.find_type_definition("via.Application");
 local get_UpTimeSecond = app_type:get_method("get_UpTimeSecond");
@@ -34,6 +41,18 @@ local get_ElapsedSecond = app_type:get_method("get_ElapsedSecond");
 
 local guiManager = nil;
 local lobbyManager = nil;
+
+function GetLobbyManager()
+	if not lobbyManager then
+		lobbyManager = sdk.get_managed_singleton("snow.LobbyManager");
+	end
+	
+	return lobbyManager;
+end
+
+function GetQuestIsOnline()
+	return GetLobbyManager():call("IsQuestOnline");
+end
 
 function GetGuiManager()
 	if not guiManager then
@@ -62,19 +81,57 @@ function GetDeltaTime()
 	return get_ElapsedSecond:call(nil);
 end
 
+function CheckShouldActivate()
+
+	--log.info("MONSTER KILL");
+	--log.info("lastHitPlayerIdx: "..lastHitPlayerIdx);
+
+	if GetQuestIsOnline() then
+
+		--myself index is only really valid if online so yknow
+		local myIdx = GetLobbyManager():get_field("_myselfQuestIndex");
+		log.info("MyQuestIdx: "..myIdx);
+
+		if not activateByAnyPlayer then
+			if lastHitPlayerIdx ~= myIdx then
+				return;
+			end
+		end
+	end
+
+	if lastHitEnemy then
+		local dieInfo = lastHitEnemy:call("getNowDieInfo");
+		--log.info("death type: "..dieInfo);
+	end
+
+	if not activateOnCapture and lastHitEnemy then
+		local dieInfo = lastHitEnemy:call("getNowDieInfo");
+		--2 == capture death
+		if dieInfo == 2 then
+			return;
+		end
+	end
+
+
+
+	if lastHitPlayerIdx < 0 then
+		return;
+	end
+
+
+	StartSlowMo();
+end
+
+
 function GetShouldUseSlowMo()
 
 	if not useSlowMo then
 		return false;
 	end
-	
-	if not lobbyManager then
-		lobbyManager = sdk.get_managed_singleton("snow.LobbyManager");
-	end
-	
-	if not useSlowMoInMP and lobbyManager:call("IsQuestOnline") then		
+
+	if not useSlowMoInMP and GetQuestIsOnline() then
 		return false;
-	end	
+	end
 
 	return true;
 end
@@ -177,7 +234,9 @@ function PreRequestCamChange(args)
 		
 		if endFlow <= 1 and endCapture == 2 then
 			
-			StartSlowMo();
+			if not activateForAllMonsters then
+				CheckShouldActivate();
+			end
 			
 			if disableKillCam then				
 				return sdk.PreHookResult.SKIP_ORIGINAL;
@@ -190,34 +249,83 @@ function PreRequestCamChange(args)
 	end
 end
 
-function PostRequestCamChange(ret)
-	return ret;
+
+
+local enemyType;
+local get_isBossEnemy;
+
+
+------------------------------------MONSTER DMG AND DEATH LOGIC--------------------------------------------
+
+function DefPost(retval)
+	return retval;
 end
 
-function PreC(args)
-	return sdk.PreHookResult.SKIP_ORIGINAL;
-end
-function PostC(ret)
-	re.msg("t");
-	return nil;
-end
+function PreDmgCalc(args)
 
-function CheckHook()
-
-	if hooked then
+	if activateByEnemies then
+		--dont invalidate otomo and enemy attacks if this is on
 		return;
 	end
 
-	local manager = sdk.get_managed_singleton("snow.CameraManager");
-	if not manager then
+	local enemy = sdk.to_managed_object(args[2]);
+	local isBoss = get_isBossEnemy:call(enemy);
+	if not isBoss then
 		return;
 	end
 	
-	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, PostRequestCamChange);
-	hooked = true;	
+	--[[
+	"Creature": 7,
+	"CreatureShell": 8,
+	"Enemy":  1,
+	"EnemyShell":  2,
+	"Otomo": 5,
+	"OtomoShell" 6,
+	"Player":  3,
+	"PlayerShell": 4,
+	"Props"  0,
+	]]
+
+	local hitInfo = sdk.to_managed_object(args[3]);
+	local hitType = hitInfo:call("get_OwnerType");
+
+	local isValidAttack = hitType == 0 or hitType == 3 or hitType == 4;
+	if not isValidAttack then		
+		--set last hit to negative to invalidate this attack if the monster dies from it
+		lastHitPlayerIdx = -1;
+		--log.info("invalid attack type: "..hitType);
+	end
+end
+
+function PrePlayerAttack(args)
+
+	local enemy = sdk.to_managed_object(args[2]);
+	local isBoss = get_isBossEnemy:call(enemy);
+	
+	if isBoss then
+		--set the last hit for this monster to the player that hit it
+		local pIdx = sdk.to_int64(args[3]);
+		lastHitPlayerIdx = pIdx;
+		lastHitEnemy = enemy;
+		--log.info("player attack idx: "..pIdx);
+	end
 end
 
 
+function PreDie(args)
+
+	if not activateForAllMonsters then
+		--use end of quest detection logic instead
+		return;
+	end
+
+	local enemy = sdk.to_managed_object(args[2]);
+	local isBoss = get_isBossEnemy:call(enemy);
+
+	if isBoss then
+		CheckShouldActivate();
+	end	
+end
 
 re.on_draw_ui(function()
     local changed = false;
@@ -234,6 +342,12 @@ re.on_draw_ui(function()
 		  changed, slowMoDuration = imgui.slider_float("SlowMo Duration", slowMoDuration, 0.01, 30.0);
 		  changed, slowMoRamp = imgui.slider_float("SlowMo Ramp", slowMoRamp, 0.1, 10);
 		  
+		  changed, activateForAllMonsters = imgui.checkbox("Activate For All Monsters", activateForAllMonsters);
+		  changed, activateByAnyPlayer = imgui.checkbox("Activate By Any Player", activateByAnyPlayer);	
+		  changed, activateByEnemies = imgui.checkbox("Activate by Enemies", activateByEnemies);	
+		  changed, activateOnCapture = imgui.checkbox("Activate on Capture", activateOnCapture);
+		  
+
 		  ---[[
 		  --debug
 		  changed, hooked = imgui.checkbox("hooked", hooked);
@@ -244,11 +358,36 @@ re.on_draw_ui(function()
 		  
 		  changed, curTimeScale = imgui.slider_float("curTimeScale", curTimeScale, 0, 1);
 		  changed, slowMoStartTime = imgui.slider_float("slowMoStartTime", slowMoStartTime, 0, 9999999);
+
+		  changed, lastHitPlayerIdx = imgui.slider_int("lastHitPlayerIdx", lastHitPlayerIdx, -1, 3);
 		  --]]
 		  
         imgui.tree_pop();
     end
 end)
+
+function CheckHook()
+
+	if hooked then
+		return;
+	end
+
+	local manager = sdk.get_managed_singleton("snow.CameraManager");
+	if not manager then
+		return;
+	end
+	
+	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost);
+
+	enemyType = sdk.find_type_definition("snow.enemy.EnemyCharacterBase");
+	get_isBossEnemy = enemyType:get_method("get_isBossEnemy");	
+
+	sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
+	sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
+	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
+
+	hooked = true;	
+end
 
 
 re.on_pre_application_entry("UpdateBehavior", function()
