@@ -17,7 +17,7 @@ local slowMoRamp = 1.5; --Speed at which it transitions back to normal time afte
 
 local activateForAllMonsters = true; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
 local activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
-local activateByEnemies = false; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
+local activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
 local activateOnCapture = false; --will trigger slowmo/hide ui when capturing the monster
 
 --skip slow mo keys
@@ -348,7 +348,7 @@ re.on_draw_ui(function()
 		  changed, activateOnCapture = imgui.checkbox("Activate on Capture", activateOnCapture);
 		  
 
-		  ---[[
+		  --[[
 		  --debug
 		  changed, hooked = imgui.checkbox("hooked", hooked);
 		  changed, isSlowMo = imgui.checkbox("isSlowMo", isSlowMo);
