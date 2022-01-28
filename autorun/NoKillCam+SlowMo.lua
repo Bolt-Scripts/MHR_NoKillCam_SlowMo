@@ -16,13 +16,20 @@ local slowMoDuration = 5; --Slow mo duration in seconds
 local slowMoRamp = 1.5; --Speed at which it transitions back to normal time after the slow mo duration has elapsed
 
 local activateForAllMonsters = true; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
-local activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
-local activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
 local activateOnCapture = false; --will trigger slowmo/hide ui when capturing the monster
 
---skip slow mo keys
-local padAnimSkipBtn = 32768 -- persistent start button on controller
-local kbAnimSkipKey = 27 -- persistent escape key. 32 = spacebar
+--these only work when the script is first initialized and cannot be changed during play without resetting scripts
+--IMPORTANT: also mighttt cause freezes when using Coavins DPS meter or MHR Overlay
+local activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
+local activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
+
+--keys
+--for keyboard keys you can look up keycodes online with something like a javascript keycode list or demo
+--note that some keys wont work as they are taken by the game or something idk
+local padAnimSkipBtn = 32768; -- persistent start button on controller
+local kbAnimSkipKey = 27; -- persistent escape key. 32 = spacebar
+local kbToggleSlowMoKey = nil; --set this to whatever key you want to toggle slowmo
+local kbToggleUiKey = nil; --set this to whatever key you want to toggle UI
 ----------------------------------------------------------
 
 
@@ -41,6 +48,52 @@ local get_ElapsedSecond = app_type:get_method("get_ElapsedSecond");
 
 local guiManager = nil;
 local lobbyManager = nil;
+local hwKB = nil;
+local hwPad = nil;
+
+
+local enemyType = sdk.find_type_definition("snow.enemy.EnemyCharacterBase");
+local get_isBossEnemy = enemyType:get_method("get_isBossEnemy");
+local getTrg = sdk.find_type_definition("snow.GameKeyboard"):get_method("getTrg");
+
+function GetMonsterActivateType(isEndQuest)
+	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
+	if isEndQuest then
+		if (isRampage and activateForAllMonsters) or (not activateForAllMonsters) then
+			return true;
+		end
+	else
+		if activateForAllMonsters then
+			if isRampage then
+				return false;
+			else
+				return true;
+			end
+		end
+	end
+
+	return false;
+end
+
+
+function GetPadDown(kc)
+	-- grabbing the gamepad manager
+    if not hwPad then
+        hwPad = sdk.get_managed_singleton("snow.Pad"):get_field("hard"); -- getting hardware keyboard manager
+    end
+	
+	return hwPad:call("orTrg", kc);
+end
+function GetKeyDown(kc)
+	-- grabbing the keyboard manager    
+    if not hwKB then
+        hwKB = sdk.get_managed_singleton("snow.GameKeyboard"):get_field("hardKeyboard"); -- getting hardware keyboard manager
+    end
+
+	--return getTrg:call(hwKB, kc);
+	return hwKB:call("getTrg", kc);
+end
+
 
 function GetLobbyManager()
 	if not lobbyManager then
@@ -90,7 +143,7 @@ function CheckShouldActivate()
 
 		--myself index is only really valid if online so yknow
 		local myIdx = GetLobbyManager():get_field("_myselfQuestIndex");
-		log.info("MyQuestIdx: "..myIdx);
+		--log.info("MyQuestIdx: "..myIdx);
 
 		if not activateByAnyPlayer then
 			if lastHitPlayerIdx ~= myIdx then
@@ -105,14 +158,21 @@ function CheckShouldActivate()
 	end
 
 	if not activateOnCapture and lastHitEnemy then
-		local dieInfo = lastHitEnemy:call("getNowDieInfo");
+		
+		local dieInfo = nil;
+		pcall(function() 
+			dieInfo = lastHitEnemy:call("getNowDieInfo");
+		end);
+
 		--2 == capture death
-		if dieInfo == 2 then
+		if dieInfo and dieInfo == 2 then
 			return;
 		end
 	end
 
-
+	if sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest") then
+		return;
+	end
 
 	if lastHitPlayerIdx < 0 then
 		return;
@@ -161,29 +221,26 @@ function EndSlowMo()
 	SetInvisibleUI(false);
 end
 
-local hwKB = nil
-local hwPad = nil
-
 function CheckSlowMoSkip()
-
-	-- grabbing the keyboard manager    
-    if not hwKB then
-        hwKB = sdk.get_managed_singleton("snow.GameKeyboard"):get_field("hardKeyboard") -- getting hardware keyboard manager
-    end
-    -- grabbing the gamepad manager
-    if not hwPad then
-        hwPad = sdk.get_managed_singleton("snow.Pad"):get_field("hard") -- getting hardware keyboard manager
-    end
-	 
-	 
-	if hwKB:call("getTrg", kbAnimSkipKey) or hwPad:call("orTrg", padAnimSkipBtn) then
-		return true;
-   end
-	
-	return false;
+	return GetKeyDown(kbAnimSkipKey) or GetPadDown(padAnimSkipBtn);
 end
 
 function HandleSlowMo()
+
+	if kbToggleSlowMoKey and GetKeyDown(kbToggleSlowMoKey) then
+		if curTimeScale == 1 then
+			curTimeScale = slowMoSpeed;
+			SetTimeScale(curTimeScale);
+		else
+			curTimeScale = 1.0;
+			SetTimeScale(curTimeScale);
+		end
+	end
+
+	if kbToggleUiKey and GetKeyDown(kbToggleUiKey) then
+		local uiState = GetGuiManager():get_field("InvisibleAllGUI");
+		GetGuiManager():set_field("InvisibleAllGUI", not uiState);
+	end
 
 	if not isSlowMo then
 		return;
@@ -234,7 +291,7 @@ function PreRequestCamChange(args)
 		
 		if endFlow <= 1 and endCapture == 2 then
 			
-			if not activateForAllMonsters then
+			if GetMonsterActivateType(true) then
 				CheckShouldActivate();
 			end
 			
@@ -250,9 +307,6 @@ function PreRequestCamChange(args)
 end
 
 
-
-local enemyType;
-local get_isBossEnemy;
 
 
 ------------------------------------MONSTER DMG AND DEATH LOGIC--------------------------------------------
@@ -286,6 +340,7 @@ function PreDmgCalc(args)
 	"Props"  0,
 	]]
 
+	lastHitEnemy = enemy;
 	local hitInfo = sdk.to_managed_object(args[3]);
 	local hitType = hitInfo:call("get_OwnerType");
 
@@ -323,7 +378,10 @@ function PreDie(args)
 	local isBoss = get_isBossEnemy:call(enemy);
 
 	if isBoss then
-		CheckShouldActivate();
+		lastHitEnemy = enemy;
+		if GetMonsterActivateType(false) then
+			CheckShouldActivate();
+		end
 	end	
 end
 
@@ -343,8 +401,8 @@ re.on_draw_ui(function()
 		  changed, slowMoRamp = imgui.slider_float("SlowMo Ramp", slowMoRamp, 0.1, 10);
 		  
 		  changed, activateForAllMonsters = imgui.checkbox("Activate For All Monsters", activateForAllMonsters);
-		  changed, activateByAnyPlayer = imgui.checkbox("Activate By Any Player", activateByAnyPlayer);	
-		  changed, activateByEnemies = imgui.checkbox("Activate by Enemies", activateByEnemies);	
+		  --changed, activateByAnyPlayer = imgui.checkbox("Activate By Any Player", activateByAnyPlayer);	
+		  --changed, activateByEnemies = imgui.checkbox("Activate by Enemies", activateByEnemies);	
 		  changed, activateOnCapture = imgui.checkbox("Activate on Capture", activateOnCapture);
 		  
 
@@ -366,27 +424,27 @@ re.on_draw_ui(function()
     end
 end)
 
+
+
 function CheckHook()
 
 	if hooked then
 		return;
 	end
 
-	local manager = sdk.get_managed_singleton("snow.CameraManager");
-	if not manager then
-		return;
-	end
-	
 	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost);
 
-	enemyType = sdk.find_type_definition("snow.enemy.EnemyCharacterBase");
-	get_isBossEnemy = enemyType:get_method("get_isBossEnemy");	
+	if not activateByAnyPlayer then
+		--I know there was definitely freezing happening while this one was on but not calcCore
+		sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
+	end
+	if not activateByEnemies then
+		sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
+	end
 
-	sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
-	sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
 	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
 
-	hooked = true;	
+	hooked = true;
 end
 
 
