@@ -11,6 +11,7 @@ local disableUiOnKill = true; --Disables the UI for the slow mo duration on mons
 
 local useSlowMo = true; --Enable slow mo for a certain duration of time after the last blow on the monster
 local useSlowMoInMP = true; --Whether or not to use slow mo in online quests
+local useMotionBlurInSlowMo = false; --ForceAdd heavy motion blur during slowmo
 local slowMoSpeed = 0.2; --Slow mo amount in percentage of realtime. 0.2 = 20% speed
 local slowMoDuration = 5; --Slow mo duration in seconds
 local slowMoRamp = 1.5; --Speed at which it transitions back to normal time after the slow mo duration has elapsed
@@ -42,12 +43,17 @@ local curTimeScale = 1.0;
 local lastHitPlayerIdx = 0;
 local lastHitEnemy = nil;
 
+local isMotionBlur = false;
+local prevMotionBlurValue;
+local prevMotionBlurEnabled;
+
 local app_type = sdk.find_type_definition("via.Application");
 local get_UpTimeSecond = app_type:get_method("get_UpTimeSecond");
 local get_ElapsedSecond = app_type:get_method("get_ElapsedSecond");
 
 local guiManager = nil;
 local lobbyManager = nil;
+local motionBlur = nil;
 local hwKB = nil;
 local hwPad = nil;
 
@@ -55,6 +61,48 @@ local hwPad = nil;
 local enemyType = sdk.find_type_definition("snow.enemy.EnemyCharacterBase");
 local get_isBossEnemy = enemyType:get_method("get_isBossEnemy");
 local getTrg = sdk.find_type_definition("snow.GameKeyboard"):get_method("getTrg");
+
+function StartMotionBlur()
+
+	if isMotionBlur or not GetMotionBlur() then return end;
+
+	prevMotionBlurEnabled = GetMotionBlur():get_field("_Enable");
+	prevMotionBlurValue = GetMotionBlur():get_field("_ExposureFrame");
+
+	GetMotionBlur():set_field("_Enable", true);
+	SetMotionBlur(100);
+
+	isMotionBlur = true;
+end
+
+function SetMotionBlur(val)
+	GetMotionBlur():set_field("_ExposureFrame", val);
+end
+
+function EndMotionBlur()
+
+	if not isMotionBlur or not GetMotionBlur() then return end;
+
+	GetMotionBlur():set_field("_Enable", prevMotionBlurEnabled);
+	SetMotionBlur(prevMotionBlurValue);
+
+	isMotionBlur = false;
+end
+
+function GetMotionBlur()
+	if not motionBlur then
+		local cam = sdk.get_managed_singleton("snow.GameCamera");
+		if not cam then return nil end;
+
+		local post = cam:call("get_GameObject"):call("getComponent(System.Type)", sdk.typeof("snow.SnowPostEffectParam"));
+		if not post then return nil end;
+
+		motionBlur = post:get_field("_SnowMotionBlur");
+	end
+
+	return motionBlur;
+end
+
 
 function GetMonsterActivateType(isEndQuest)
 	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
@@ -200,6 +248,10 @@ function SetTimeScale(value)
 		
 		curScene:call("set_TimeScale", value);
 		timeManager:call("set_TimeScale", value);
+
+		if useMotionBlurInSlowMo and GetMotionBlur() then
+			SetMotionBlur(100 * (1.0 - value));
+		end
 	end
 end
 
@@ -214,12 +266,14 @@ function EndSlowMo()
 	curTimeScale = 1.0;
 	isSlowMo = false;
 	SetInvisibleUI(false);
+	EndMotionBlur();
 end
 
 function CheckSlowMoSkip()
 	return GetKeyDown(kbAnimSkipKey) or GetPadDown(padAnimSkipBtn);
 end
 
+local ks = 200;
 function HandleSlowMo()
 
 	if kbToggleSlowMoKey and GetKeyDown(kbToggleSlowMoKey) then
@@ -255,7 +309,13 @@ function HandleSlowMo()
 	end
 	
 	if curTimeScale == 1 then
+		
 		curTimeScale = slowMoSpeed;
+
+		if useMotionBlurInSlowMo then
+			StartMotionBlur();
+		end
+
 	elseif curTime - slowMoStartTime > slowMoDuration then
 		curTimeScale = curTimeScale + slowMoRamp * GetDeltaTime();
 		if curTimeScale >= 1 then
@@ -391,6 +451,7 @@ re.on_draw_ui(function()
 		  
 		  changed, useSlowMo = imgui.checkbox("Use SlowMo", useSlowMo);
 		  changed, useSlowMoInMP = imgui.checkbox("Use SlowMo Online", useSlowMoInMP);
+		  changed, useMotionBlurInSlowMo = imgui.checkbox("Use Motion Blur In SlowMo", useMotionBlurInSlowMo);
 		  changed, slowMoSpeed = imgui.slider_float("SlowMo Speed", slowMoSpeed, 0.01, 1.0);
 		  changed, slowMoDuration = imgui.slider_float("SlowMo Duration", slowMoDuration, 0.01, 30.0);
 		  changed, slowMoRamp = imgui.slider_float("SlowMo Ramp", slowMoRamp, 0.1, 10);
