@@ -152,11 +152,6 @@ function CheckShouldActivate()
 		end
 	end
 
-	if lastHitEnemy then
-		local dieInfo = lastHitEnemy:call("getNowDieInfo");
-		--log.info("death type: "..dieInfo);
-	end
-
 	if not activateOnCapture and lastHitEnemy then
 		
 		local dieInfo = nil;
