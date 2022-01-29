@@ -16,11 +16,11 @@ local slowMoSpeed = 0.2; --Slow mo amount in percentage of realtime. 0.2 = 20% s
 local slowMoDuration = 5; --Slow mo duration in seconds
 local slowMoRamp = 1.5; --Speed at which it transitions back to normal time after the slow mo duration has elapsed
 
-local activateForAllMonsters = true; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
 local activateOnCapture = false; --will trigger slowmo/hide ui when capturing the monster
 
 --these only work when the script is first initialized and cannot be changed during play without resetting scripts
---IMPORTANT: also mighttt cause freezes when using Coavins DPS meter or MHR Overlay
+--IMPORTANT: also mighttt cause freezes when using Coavins DPS meter or MHR Overlay if you change them
+local activateForAllMonsters = false; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
 local activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
 local activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
 
@@ -278,6 +278,7 @@ function HandleSlowMo()
 
 	if kbToggleSlowMoKey and GetKeyDown(kbToggleSlowMoKey) then
 		if curTimeScale == 1 then
+			useSlowMoThisTime = true;
 			curTimeScale = slowMoSpeed;
 			SetTimeScale(curTimeScale);
 		else
@@ -344,7 +345,7 @@ function PreRequestCamChange(args)
 		--idk, this was just the first value i found that actually changes the instant you complete the quest
 		local endCapture = manager:get_field("_EndCaptureFlag");
 		
-		if endFlow <= 1 and endCapture == 2 then
+		if endFlow <= 0 and endCapture == 2 then
 			
 			if GetMonsterActivateType(true) then
 				CheckShouldActivate();
@@ -433,11 +434,17 @@ function PreDie(args)
 	local isBoss = get_isBossEnemy:call(enemy);
 
 	if isBoss then
+		dieInfo = enemy:call("getNowDieInfo");
+		if dieInfo == 65535 then
+			--dont trigger for non death related leavings
+			return;
+		end
+
 		lastHitEnemy = enemy;
 		if GetMonsterActivateType(false) then
 			CheckShouldActivate();
 		end
-	end	
+	end
 end
 
 re.on_draw_ui(function()
@@ -497,8 +504,9 @@ function CheckHook()
 	if not activateByEnemies then
 		sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
 	end
-
-	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
+	if activateForAllMonsters then
+		sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
+	end
 
 	hooked = true;
 end
