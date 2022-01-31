@@ -26,10 +26,11 @@ local settings = {
 	activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
 
 }
+
 --keys
 --for keyboard keys you can look up keycodes online with something like a javascript keycode list or demo
 --note that some keys wont work as they are taken by the game or something idk
-local padAnimSkipBtn = 32768; -- persistent start button on controller
+local padAnimSkipBtn = nil; -- persistent start button on controller, 32768 is probably start button but might be broken for some and cause slowmo not to work
 local kbAnimSkipKey = 27; -- persistent escape key. 32 = spacebar
 local kbToggleSlowMoKey = nil; --set this to whatever key you want to toggle slowmo
 local kbToggleUiKey = nil; --set this to whatever key you want to toggle UI
@@ -286,7 +287,7 @@ function EndSlowMo()
 end
 
 function CheckSlowMoSkip()
-	return GetKeyDown(kbAnimSkipKey) or GetPadDown(settings.padAnimSkipBtn);
+	return GetKeyDown(kbAnimSkipKey) or (settings.padAnimSkipBtn and GetPadDown(settings.padAnimSkipBtn));
 end
 
 local ks = 200;
@@ -515,11 +516,11 @@ re.on_draw_ui(function()
 			  SaveSettings()
 		  end
 		  
-		  changed, value = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
-		  if changed then
-			  settings.activateForAllMonsters = value
-			  SaveSettings()
-		  end
+		--   changed, value = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
+		--   if changed then
+		-- 	  settings.activateForAllMonsters = value
+		-- 	  SaveSettings()
+		--   end
 		--   changed, value = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
 		--   if changed then
 		-- 	settings.activateByAnyPlayer = value
