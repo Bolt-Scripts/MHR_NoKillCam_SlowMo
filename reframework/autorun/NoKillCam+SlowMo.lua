@@ -4,26 +4,28 @@
 
 ---------------------------Settings----------------------
 
-local disableKillCam = true; --Disables the hover view of the monster from different angles after killing them
-local disableOtherCams = false; --Disables fast travel cutscene cam and end of quest cam (like petting your buddies etc.) slightly glitchy with fast travel camera transitions
+local settings = {
+	disableKillCam = true; --Disables the hover view of the monster from different angles after killing them
+	disableOtherCams = false; --Disables fast travel cutscene cam and end of quest cam (like petting your buddies etc.) slightly glitchy with fast travel camera transitions
 
-local disableUiOnKill = true; --Disables the UI for the slow mo duration on monster kill
+	disableUiOnKill = true; --Disables the UI for the slow mo duration on monster kill
 
-local useSlowMo = true; --Enable slow mo for a certain duration of time after the last blow on the monster
-local useSlowMoInMP = true; --Whether or not to use slow mo in online quests
-local useMotionBlurInSlowMo = false; --ForceAdd heavy motion blur during slowmo
-local slowMoSpeed = 0.2; --Slow mo amount in percentage of realtime. 0.2 = 20% speed
-local slowMoDuration = 5; --Slow mo duration in seconds
-local slowMoRamp = 1.5; --Speed at which it transitions back to normal time after the slow mo duration has elapsed
+	useSlowMo = true; --Enable slow mo for a certain duration of time after the last blow on the monster
+	useSlowMoInMP = true; --Whether or not to use slow mo in online quests
+	useMotionBlurInSlowMo = false; --ForceAdd heavy motion blur during slowmo
+	slowMoSpeed = 0.2; --Slow mo amount in percentage of realtime. 0.2 = 20% speed
+	slowMoDuration = 5; --Slow mo duration in seconds
+	slowMoRamp = 1.5; --Speed at which it transitions back to normal time after the slow mo duration has elapsed
 
-local activateOnCapture = false; --will trigger slowmo/hide ui when capturing the monster
+	activateOnCapture = false; --will trigger slowmo/hide ui when capturing the monster
 
---these only work when the script is first initialized and cannot be changed during play without resetting scripts
---IMPORTANT: also mighttt cause freezes when using Coavins DPS meter or MHR Overlay if you change them
-local activateForAllMonsters = false; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
-local activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
-local activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
+	--these only work when the script is first initialized and cannot be changed during play without resetting scripts
+	--IMPORTANT: also mighttt cause freezes when using Coavins DPS meter or MHR Overlay if you change them
+	activateForAllMonsters = false; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
+	activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
+	activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
 
+}
 --keys
 --for keyboard keys you can look up keycodes online with something like a javascript keycode list or demo
 --note that some keys wont work as they are taken by the game or something idk
@@ -61,6 +63,20 @@ local hwPad = nil;
 local enemyType = sdk.find_type_definition("snow.enemy.EnemyCharacterBase");
 local get_isBossEnemy = enemyType:get_method("get_isBossEnemy");
 local getTrg = sdk.find_type_definition("snow.GameKeyboard"):get_method("getTrg");
+
+function SaveSettings()
+	json.dump_file("NoKillCam+SlowMo_settings.json", settings)
+end
+
+function LoadSettings()
+	local loadedSettings = json.load_file("NoKillCam+SlowMo_settings.json")
+	if loadedSettings ~= nil then
+		settings = loadedSettings
+	end
+end
+
+-- Load setting first
+LoadSettings()
 
 function StartMotionBlur()
 
@@ -107,11 +123,11 @@ end
 function GetMonsterActivateType(isEndQuest)
 	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
 	if isEndQuest then
-		if (isRampage and activateForAllMonsters) or (not activateForAllMonsters) then
+		if (isRampage and settings.activateForAllMonsters) or (not settings.activateForAllMonsters) then
 			return true;
 		end
 	else
-		if activateForAllMonsters then
+		if settings.activateForAllMonsters then
 			if isRampage then
 				return false;
 			else
@@ -165,7 +181,7 @@ end
 
 function SetInvisibleUI(value)
 
-	if not disableUiOnKill then
+	if not settings.disableUiOnKill then
 		return;
 	end
 	
@@ -193,7 +209,7 @@ function CheckShouldActivate()
 		local myIdx = GetLobbyManager():get_field("_myselfQuestIndex");
 		--log.info("MyQuestIdx: "..myIdx);
 
-		if not activateByAnyPlayer then
+		if not settings.activateByAnyPlayer then
 			if lastHitPlayerIdx ~= myIdx then
 				return;
 			end
@@ -228,11 +244,11 @@ end
 
 function GetShouldUseSlowMo()
 
-	if not useSlowMo then
+	if not settings.useSlowMo then
 		return false;
 	end
 
-	if not useSlowMoInMP and GetQuestIsOnline() then
+	if not settings.useSlowMoInMP and GetQuestIsOnline() then
 		return false;
 	end
 
@@ -249,7 +265,7 @@ function SetTimeScale(value)
 		curScene:call("set_TimeScale", value);
 		timeManager:call("set_TimeScale", value);
 
-		if useMotionBlurInSlowMo and GetMotionBlur() then
+		if settings.useMotionBlurInSlowMo and GetMotionBlur() then
 			SetMotionBlur(100 * (1.0 - value));
 		end
 	end
@@ -270,7 +286,7 @@ function EndSlowMo()
 end
 
 function CheckSlowMoSkip()
-	return GetKeyDown(kbAnimSkipKey) or GetPadDown(padAnimSkipBtn);
+	return GetKeyDown(kbAnimSkipKey) or GetPadDown(settings.padAnimSkipBtn);
 end
 
 local ks = 200;
@@ -279,7 +295,7 @@ function HandleSlowMo()
 	if kbToggleSlowMoKey and GetKeyDown(kbToggleSlowMoKey) then
 		if curTimeScale == 1 then
 			useSlowMoThisTime = true;
-			curTimeScale = slowMoSpeed;
+			curTimeScale = settings.slowMoSpeed;
 			SetTimeScale(curTimeScale);
 		else
 			curTimeScale = 1.0;
@@ -311,14 +327,14 @@ function HandleSlowMo()
 	
 	if curTimeScale == 1 then
 		
-		curTimeScale = slowMoSpeed;
+		curTimeScale = settings.slowMoSpeed;
 
-		if useMotionBlurInSlowMo then
+		if settings.useMotionBlurInSlowMo then
 			StartMotionBlur();
 		end
 
-	elseif curTime - slowMoStartTime > slowMoDuration then
-		curTimeScale = curTimeScale + slowMoRamp * GetDeltaTime();
+	elseif curTime - slowMoStartTime > settings.slowMoDuration then
+		curTimeScale = curTimeScale + settings.slowMoRamp * GetDeltaTime();
 		if curTimeScale >= 1 then
 			EndSlowMo();
 		end
@@ -351,12 +367,12 @@ function PreRequestCamChange(args)
 				CheckShouldActivate();
 			end
 			
-			if disableKillCam then				
+			if settings.disableKillCam then				
 				return sdk.PreHookResult.SKIP_ORIGINAL;
 			else
 				return;
 			end
-		elseif disableOtherCams then
+		elseif settings.disableOtherCams then
 			return sdk.PreHookResult.SKIP_ORIGINAL;
 		end
 	end
@@ -373,7 +389,7 @@ end
 
 function PreDmgCalc(args)
 
-	if activateByEnemies then
+	if settings.activateByEnemies then
 		--dont invalidate otomo and enemy attacks if this is on
 		return;
 	end
@@ -425,7 +441,7 @@ end
 
 function PreDie(args)
 
-	if not activateForAllMonsters then
+	if not settings.activateForAllMonsters then
 		--use end of quest detection logic instead
 		return;
 	end
@@ -452,21 +468,73 @@ re.on_draw_ui(function()
 
     if imgui.tree_node("No Kill-Cam + SlowMo") then
 	 
-		  changed, disableKillCam = imgui.checkbox("Disable KillCam", disableKillCam);
-		  changed, disableOtherCams = imgui.checkbox("Disable Other Cams", disableOtherCams);
-		  changed, disableUiOnKill = imgui.checkbox("Disable UI on Kill", disableUiOnKill);		
+		  changed, value = imgui.checkbox("Disable KillCam", settings.disableKillCam);
+		  if changed then
+			  settings.disableKillCam = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.checkbox("Disable Other Cams", settings.disableOtherCams);
+		  if changed then
+			  settings.disableOtherCams = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.checkbox("Disable UI on Kill", settings.disableUiOnKill);
+		  if changed then
+			  settings.disableUiOnKill = value
+			  SaveSettings()
+		  end
 		  
-		  changed, useSlowMo = imgui.checkbox("Use SlowMo", useSlowMo);
-		  changed, useSlowMoInMP = imgui.checkbox("Use SlowMo Online", useSlowMoInMP);
-		  changed, useMotionBlurInSlowMo = imgui.checkbox("Use Motion Blur In SlowMo", useMotionBlurInSlowMo);
-		  changed, slowMoSpeed = imgui.slider_float("SlowMo Speed", slowMoSpeed, 0.01, 1.0);
-		  changed, slowMoDuration = imgui.slider_float("SlowMo Duration", slowMoDuration, 0.01, 30.0);
-		  changed, slowMoRamp = imgui.slider_float("SlowMo Ramp", slowMoRamp, 0.1, 10);
+		  changed, value = imgui.checkbox("Use SlowMo", settings.useSlowMo);
+		  if changed then
+			  settings.useSlowMo = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.checkbox("Use SlowMo Online", settings.useSlowMoInMP);
+		  if changed then
+			  settings.useSlowMoInMP = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.checkbox("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo);
+		  if changed then
+			  settings.useMotionBlurInSlowMo = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.slider_float("SlowMo Speed", settings.slowMoSpeed, 0.01, 1.0);
+		  if changed then
+			  settings.slowMoSpeed = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.slider_float("SlowMo Duration", settings.slowMoDuration, 0.01, 30.0);
+		  if changed then
+			  settings.slowMoDuration = value
+			  SaveSettings()
+		  end
+		  changed, value = imgui.slider_float("SlowMo Ramp", settings.slowMoRamp, 0.1, 10);
+		  if changed then
+			  settings.slowMoRamp = value
+			  SaveSettings()
+		  end
 		  
-		  changed, activateForAllMonsters = imgui.checkbox("Activate For All Monsters", activateForAllMonsters);
-		  --changed, activateByAnyPlayer = imgui.checkbox("Activate By Any Player", activateByAnyPlayer);	
-		  --changed, activateByEnemies = imgui.checkbox("Activate by Enemies", activateByEnemies);	
-		  changed, activateOnCapture = imgui.checkbox("Activate on Capture", activateOnCapture);
+		  changed, value = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
+		  if changed then
+			  settings.activateForAllMonsters = value
+			  SaveSettings()
+		  end
+		--   changed, value = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
+		--   if changed then
+		-- 	settings.activateByAnyPlayer = value
+		-- 	SaveSettings()
+		--   end
+		--   changed, value = imgui.checkbox("Activate by Enemies", settings.activateByEnemies);
+		--   if changed then
+		-- 	settings.activateByEnemies = value
+		-- 	SaveSettings()
+		--   end
+		  changed, value = imgui.checkbox("Activate on Capture", settings.activateOnCapture);
+		  if changed then
+			  settings.activateOnCapture = value
+			  SaveSettings()
+		  end
 		  
 
 		  --[[
@@ -497,14 +565,14 @@ function CheckHook()
 
 	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost);
 
-	if not activateByAnyPlayer then
+	if not settings.activateByAnyPlayer then
 		--I know there was definitely freezing happening while this one was on but not calcCore
 		sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
 	end
-	if not activateByEnemies then
+	if not settings.activateByEnemies then
 		sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
 	end
-	if activateForAllMonsters then
+	if settings.activateForAllMonsters then
 		sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
 	end
 
