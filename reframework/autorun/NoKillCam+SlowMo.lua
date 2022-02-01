@@ -24,7 +24,6 @@ local settings = {
 	activateForAllMonsters = false; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
 	activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
 	activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
-
 }
 
 --keys
@@ -66,18 +65,18 @@ local get_isBossEnemy = enemyType:get_method("get_isBossEnemy");
 local getTrg = sdk.find_type_definition("snow.GameKeyboard"):get_method("getTrg");
 
 function SaveSettings()
-	json.dump_file("NoKillCam+SlowMo_settings.json", settings)
+	json.dump_file("NoKillCam+SlowMo_settings.json", settings);
 end
 
 function LoadSettings()
-	local loadedSettings = json.load_file("NoKillCam+SlowMo_settings.json")
-	if loadedSettings ~= nil then
-		settings = loadedSettings
+	local loadedSettings = json.load_file("NoKillCam+SlowMo_settings.json");
+	if loadedSettings then
+		settings = loadedSettings;
 	end
 end
 
 -- Load setting first
-LoadSettings()
+LoadSettings();
 
 function StartMotionBlur()
 
@@ -464,97 +463,7 @@ function PreDie(args)
 	end
 end
 
-re.on_draw_ui(function()
-    local changed = false;
 
-    if imgui.tree_node("No Kill-Cam + SlowMo") then
-	 
-		  changed, value = imgui.checkbox("Disable KillCam", settings.disableKillCam);
-		  if changed then
-			  settings.disableKillCam = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.checkbox("Disable Other Cams", settings.disableOtherCams);
-		  if changed then
-			  settings.disableOtherCams = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.checkbox("Disable UI on Kill", settings.disableUiOnKill);
-		  if changed then
-			  settings.disableUiOnKill = value
-			  SaveSettings()
-		  end
-		  
-		  changed, value = imgui.checkbox("Use SlowMo", settings.useSlowMo);
-		  if changed then
-			  settings.useSlowMo = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.checkbox("Use SlowMo Online", settings.useSlowMoInMP);
-		  if changed then
-			  settings.useSlowMoInMP = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.checkbox("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo);
-		  if changed then
-			  settings.useMotionBlurInSlowMo = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.slider_float("SlowMo Speed", settings.slowMoSpeed, 0.01, 1.0);
-		  if changed then
-			  settings.slowMoSpeed = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.slider_float("SlowMo Duration", settings.slowMoDuration, 0.01, 30.0);
-		  if changed then
-			  settings.slowMoDuration = value
-			  SaveSettings()
-		  end
-		  changed, value = imgui.slider_float("SlowMo Ramp", settings.slowMoRamp, 0.1, 10);
-		  if changed then
-			  settings.slowMoRamp = value
-			  SaveSettings()
-		  end
-		  
-		--   changed, value = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
-		--   if changed then
-		-- 	  settings.activateForAllMonsters = value
-		-- 	  SaveSettings()
-		--   end
-		--   changed, value = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
-		--   if changed then
-		-- 	settings.activateByAnyPlayer = value
-		-- 	SaveSettings()
-		--   end
-		--   changed, value = imgui.checkbox("Activate by Enemies", settings.activateByEnemies);
-		--   if changed then
-		-- 	settings.activateByEnemies = value
-		-- 	SaveSettings()
-		--   end
-		  changed, value = imgui.checkbox("Activate on Capture", settings.activateOnCapture);
-		  if changed then
-			  settings.activateOnCapture = value
-			  SaveSettings()
-		  end
-		  
-
-		  --[[
-		  --debug
-		  changed, hooked = imgui.checkbox("hooked", hooked);
-		  changed, isSlowMo = imgui.checkbox("isSlowMo", isSlowMo);
-		  if changed and isSlowMo then
-			StartSlowMo();
-		  end
-		  
-		  changed, curTimeScale = imgui.slider_float("curTimeScale", curTimeScale, 0, 1);
-		  changed, slowMoStartTime = imgui.slider_float("slowMoStartTime", slowMoStartTime, 0, 9999999);
-
-		  changed, lastHitPlayerIdx = imgui.slider_int("lastHitPlayerIdx", lastHitPlayerIdx, -1, 3);
-		  --]]
-		  
-        imgui.tree_pop();
-    end
-end)
 
 
 
@@ -584,4 +493,66 @@ end
 re.on_pre_application_entry("UpdateBehavior", function()
 	CheckHook();
 	HandleSlowMo();
+end)
+
+
+
+
+-------------------------UI GARBAGE----------------------------------
+local needsReset = false
+
+re.on_draw_ui(function()
+    local changed = false;
+
+    if imgui.tree_node("No Kill-Cam + SlowMo") then
+	 
+		changed, settings.disableKillCam = imgui.checkbox("Disable KillCam", settings.disableKillCam);
+		changed, settings.disableOtherCams = imgui.checkbox("Disable Other Cams", settings.disableOtherCams);
+		changed, settings.disableUiOnKill = imgui.checkbox("Disable UI on Kill", settings.disableUiOnKill);
+		changed, settings.useSlowMo = imgui.checkbox("Use SlowMo", settings.useSlowMo);
+		changed, settings.useSlowMoInMP = imgui.checkbox("Use SlowMo Online", settings.useSlowMoInMP);
+		changed, settings.useMotionBlurInSlowMo = imgui.checkbox("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo);
+
+		changed, settings.slowMoSpeed = imgui.slider_float("SlowMo Speed", settings.slowMoSpeed, 0.01, 1.0);
+		changed, settings.slowMoDuration = imgui.slider_float("SlowMo Duration", settings.slowMoDuration, 0.1, 15.0);
+		changed, settings.slowMoRamp = imgui.slider_float("SlowMo Ramp", settings.slowMoRamp, 0.1, 10);
+
+		if needsReset then
+			imgui.new_line()
+			imgui.begin_rect()
+			imgui.text("Settings changed requires reset scripts. Please do ScriptRunner->Reset Scripts or restart game.")
+			imgui.end_rect(10)
+			imgui.new_line()
+		end
+
+		changed, settings.activateForAllMonsters = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
+		needsReset = needsReset or changed;
+		changed, settings.activateByAnyPlayer = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
+		needsReset = needsReset or changed;
+		changed, settings.activateByEnemies = imgui.checkbox("Activate by Enemies", settings.activateByEnemies);
+		needsReset = needsReset or changed;
+		changed, settings.activateOnCapture = imgui.checkbox("Activate on Capture", settings.activateOnCapture);
+
+		
+
+		--[[
+		--debug
+		changed, hooked = imgui.checkbox("hooked", hooked);
+		changed, isSlowMo = imgui.checkbox("isSlowMo", isSlowMo);
+		if changed and isSlowMo then
+			StartSlowMo();
+		end
+		
+		changed, curTimeScale = imgui.slider_float("curTimeScale", curTimeScale, 0, 1);
+		changed, slowMoStartTime = imgui.slider_float("slowMoStartTime", slowMoStartTime, 0, 9999999);
+
+		changed, lastHitPlayerIdx = imgui.slider_int("lastHitPlayerIdx", lastHitPlayerIdx, -1, 3);
+		--]]
+		
+        imgui.tree_pop();
+    end
+end)
+
+re.on_config_save(function()
+	SaveSettings();
 end)
