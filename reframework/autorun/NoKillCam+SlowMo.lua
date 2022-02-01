@@ -24,15 +24,15 @@ local settings = {
 	activateForAllMonsters = false; --will trigger slowmo/hide ui when killing any large monster, not just the final one on quest clear
 	activateByAnyPlayer = true; --will trigger slowmo/hide ui when any player kills a monster, otherwise only when you do it 
 	activateByEnemies = true; --will trigger slowmo/hide ui when a small monster or your pets kill a large monster, otherwise only when players do it
+	
+	--keys
+	--for keyboard keys you can look up keycodes online with something like a javascript keycode list or demo
+	--note that some keys wont work as they are taken by the game or something idk
+	padAnimSkipBtn = nil; -- persistent start button on controller, 32768 is probably start button but might be broken for some and cause slowmo not to work
+	kbAnimSkipKey = 27; -- persistent escape key. 32 = spacebar
+	kbToggleSlowMoKey = nil; --set this to whatever key you want to toggle slowmo
+	kbToggleUiKey = nil; --set this to whatever key you want to toggle UI
 }
-
---keys
---for keyboard keys you can look up keycodes online with something like a javascript keycode list or demo
---note that some keys wont work as they are taken by the game or something idk
-local padAnimSkipBtn = nil; -- persistent start button on controller, 32768 is probably start button but might be broken for some and cause slowmo not to work
-local kbAnimSkipKey = 27; -- persistent escape key. 32 = spacebar
-local kbToggleSlowMoKey = nil; --set this to whatever key you want to toggle slowmo
-local kbToggleUiKey = nil; --set this to whatever key you want to toggle UI
 ----------------------------------------------------------
 
 
@@ -286,13 +286,13 @@ function EndSlowMo()
 end
 
 function CheckSlowMoSkip()
-	return GetKeyDown(kbAnimSkipKey) or (settings.padAnimSkipBtn and GetPadDown(settings.padAnimSkipBtn));
+	return (settings.kbAnimSkipKey and GetKeyDown(settings.kbAnimSkipKey)) or (settings.padAnimSkipBtn and GetPadDown(settings.padAnimSkipBtn));
 end
 
 local ks = 200;
 function HandleSlowMo()
 
-	if kbToggleSlowMoKey and GetKeyDown(kbToggleSlowMoKey) then
+	if settings.kbToggleSlowMoKey and GetKeyDown(settings.kbToggleSlowMoKey) then
 		if curTimeScale == 1 then
 			useSlowMoThisTime = true;
 			curTimeScale = settings.slowMoSpeed;
@@ -303,7 +303,7 @@ function HandleSlowMo()
 		end
 	end
 
-	if kbToggleUiKey and GetKeyDown(kbToggleUiKey) then
+	if settings.kbToggleUiKey and GetKeyDown(settings.kbToggleUiKey) then
 		local uiState = GetGuiManager():get_field("InvisibleAllGUI");
 		GetGuiManager():set_field("InvisibleAllGUI", not uiState);
 	end
@@ -517,12 +517,21 @@ re.on_draw_ui(function()
 		changed, settings.slowMoDuration = imgui.slider_float("SlowMo Duration", settings.slowMoDuration, 0.1, 15.0);
 		changed, settings.slowMoRamp = imgui.slider_float("SlowMo Ramp", settings.slowMoRamp, 0.1, 10);
 
-		if needsReset then
-			imgui.new_line()
-			imgui.begin_rect()
-			imgui.text("Settings changed requires reset scripts. Please do ScriptRunner->Reset Scripts or restart game.")
-			imgui.end_rect(10)
-			imgui.new_line()
+		local potentiallyFreezingSettings = settings.activateForAllMonsters or not settings.activateByEnemies or not settings.activateByAnyPlayer;
+		if needsReset or potentiallyFreezingSettings then
+			imgui.new_line();
+			imgui.begin_rect();
+
+			if needsReset then
+				imgui.text("Settings changed requires reset scripts. Please do ScriptRunner->Reset Scripts or restart game.");
+			end
+
+			if potentiallyFreezingSettings then
+				imgui.text("Current settings may cause freezing in multiplayer when using MHR Overlay or Coavins DPS meter, potentially just in general.");
+			end
+
+			imgui.end_rect(10);
+			imgui.new_line();
 		end
 
 		changed, settings.activateForAllMonsters = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
