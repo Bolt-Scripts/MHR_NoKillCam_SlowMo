@@ -315,6 +315,7 @@ function HandleSlowMo()
 	local curTime = GetTime();
 	
 	if CheckSlowMoSkip() then
+		log.info("SLOWMO: SKIPPED");
 		curTimeScale = 2;
 		EndSlowMo();
 		
@@ -421,6 +422,8 @@ function PreDmgCalc(args)
 		--set last hit to negative to invalidate this attack if the monster dies from it
 		lastHitPlayerIdx = -1;
 		--log.info("invalid attack type: "..hitType);
+	else
+		lastHitPlayerIdx = 0;
 	end
 end
 
@@ -433,6 +436,9 @@ function PrePlayerAttack(args)
 		--set the last hit for this monster to the player that hit it
 		local pIdx = sdk.to_int64(args[3]);
 		lastHitPlayerIdx = pIdx;
+		if lastHitPlayerIdx < 0 then
+			lastHitPlayerIdx = 0;
+		end
 		lastHitEnemy = enemy;
 		--log.info("player attack idx: "..pIdx);
 	end
