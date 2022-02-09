@@ -64,11 +64,11 @@ local enemyType = sdk.find_type_definition("snow.enemy.EnemyCharacterBase");
 local get_isBossEnemy = enemyType:get_method("get_isBossEnemy");
 local getTrg = sdk.find_type_definition("snow.GameKeyboard"):get_method("getTrg");
 
-function SaveSettings()
+local function SaveSettings()
 	json.dump_file("NoKillCam+SlowMo_settings.json", settings);
 end
 
-function LoadSettings()
+local function LoadSettings()
 	local loadedSettings = json.load_file("NoKillCam+SlowMo_settings.json");
 	if loadedSettings then
 		settings = loadedSettings;
@@ -78,34 +78,7 @@ end
 -- Load setting first
 LoadSettings();
 
-function StartMotionBlur()
-
-	if isMotionBlur or not GetMotionBlur() then return end;
-
-	prevMotionBlurEnabled = GetMotionBlur():get_field("_Enable");
-	prevMotionBlurValue = GetMotionBlur():get_field("_ExposureFrame");
-
-	GetMotionBlur():set_field("_Enable", true);
-	SetMotionBlur(100);
-
-	isMotionBlur = true;
-end
-
-function SetMotionBlur(val)
-	GetMotionBlur():set_field("_ExposureFrame", val);
-end
-
-function EndMotionBlur()
-
-	if not isMotionBlur or not GetMotionBlur() then return end;
-
-	GetMotionBlur():set_field("_Enable", prevMotionBlurEnabled);
-	SetMotionBlur(prevMotionBlurValue);
-
-	isMotionBlur = false;
-end
-
-function GetMotionBlur()
+local function GetMotionBlur()
 	if not motionBlur then
 		local cam = sdk.get_managed_singleton("snow.GameCamera");
 		if not cam then return nil end;
@@ -119,8 +92,37 @@ function GetMotionBlur()
 	return motionBlur;
 end
 
+local function StartMotionBlur()
 
-function GetMonsterActivateType(isEndQuest)
+	if isMotionBlur or not GetMotionBlur() then return end;
+
+	prevMotionBlurEnabled = GetMotionBlur():get_field("_Enable");
+	prevMotionBlurValue = GetMotionBlur():get_field("_ExposureFrame");
+
+	GetMotionBlur():set_field("_Enable", true);
+	SetMotionBlur(100);
+
+	isMotionBlur = true;
+end
+
+local function SetMotionBlur(val)
+	GetMotionBlur():set_field("_ExposureFrame", val);
+end
+
+local function EndMotionBlur()
+
+	if not isMotionBlur or not GetMotionBlur() then return end;
+
+	GetMotionBlur():set_field("_Enable", prevMotionBlurEnabled);
+	SetMotionBlur(prevMotionBlurValue);
+
+	isMotionBlur = false;
+end
+
+
+
+
+local function GetMonsterActivateType(isEndQuest)
 	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
 	if isEndQuest then
 		if (isRampage and settings.activateForAllMonsters) or (not settings.activateForAllMonsters) then
@@ -140,7 +142,7 @@ function GetMonsterActivateType(isEndQuest)
 end
 
 
-function GetPadDown(kc)
+local function GetPadDown(kc)
 	-- grabbing the gamepad manager
     if not hwPad then
         hwPad = sdk.get_managed_singleton("snow.Pad"):get_field("hard"); -- getting hardware keyboard manager
@@ -148,7 +150,7 @@ function GetPadDown(kc)
 	
 	return hwPad:call("orTrg", kc);
 end
-function GetKeyDown(kc)
+local function GetKeyDown(kc)
 	-- grabbing the keyboard manager    
     if not hwKB then
         hwKB = sdk.get_managed_singleton("snow.GameKeyboard"):get_field("hardKeyboard"); -- getting hardware keyboard manager
@@ -159,7 +161,7 @@ function GetKeyDown(kc)
 end
 
 
-function GetLobbyManager()
+local function GetLobbyManager()
 	if not lobbyManager then
 		lobbyManager = sdk.get_managed_singleton("snow.LobbyManager");
 	end
@@ -167,11 +169,11 @@ function GetLobbyManager()
 	return lobbyManager;
 end
 
-function GetQuestIsOnline()
+local function GetQuestIsOnline()
 	return GetLobbyManager():call("IsQuestOnline");
 end
 
-function GetGuiManager()
+local function GetGuiManager()
 	if not guiManager then
 		guiManager = sdk.get_managed_singleton("snow.gui.GuiManager");
 	end
@@ -179,7 +181,7 @@ function GetGuiManager()
 	return guiManager;
 end
 
-function SetInvisibleUI(value)
+local function SetInvisibleUI(value)
 
 	if not settings.disableUiOnKill then
 		return;
@@ -189,16 +191,36 @@ function SetInvisibleUI(value)
 end
 
 
-function GetTime()
+local function GetTime()
 	return get_UpTimeSecond:call(nil);
 end
 
-function GetDeltaTime()
+local function GetDeltaTime()
 	--no clue why but get_DeltaTime is complete nonsense seemingly whereas get_ElapsedSecond of all things is actual deltatime
 	return get_ElapsedSecond:call(nil);
 end
 
-function CheckShouldActivate()
+local function GetShouldUseSlowMo()
+
+	if not settings.useSlowMo then
+		return false;
+	end
+
+	if not settings.useSlowMoInMP and GetQuestIsOnline() then
+		return false;
+	end
+
+	return true;
+end
+
+local function StartSlowMo()
+	useSlowMoThisTime = GetShouldUseSlowMo();
+	isSlowMo = true;
+	slowMoStartTime = GetTime();
+	SetInvisibleUI(true);
+end
+
+local function CheckShouldActivate()
 
 	--log.info("MONSTER KILL");
 	--log.info("lastHitPlayerIdx: "..lastHitPlayerIdx);
@@ -242,20 +264,9 @@ function CheckShouldActivate()
 end
 
 
-function GetShouldUseSlowMo()
 
-	if not settings.useSlowMo then
-		return false;
-	end
 
-	if not settings.useSlowMoInMP and GetQuestIsOnline() then
-		return false;
-	end
-
-	return true;
-end
-
-function SetTimeScale(value)
+local function SetTimeScale(value)
 	if useSlowMoThisTime then
 		local scene_manager = sdk.get_native_singleton("via.SceneManager");
 		local scene_manager_type = sdk.find_type_definition("via.SceneManager");
@@ -271,26 +282,21 @@ function SetTimeScale(value)
 	end
 end
 
-function StartSlowMo()
-	useSlowMoThisTime = GetShouldUseSlowMo();
-	isSlowMo = true;
-	slowMoStartTime = GetTime();
-	SetInvisibleUI(true);
-end
 
-function EndSlowMo()
+
+local function EndSlowMo()
 	curTimeScale = 1.0;
 	isSlowMo = false;
 	SetInvisibleUI(false);
 	EndMotionBlur();
 end
 
-function CheckSlowMoSkip()
+local function CheckSlowMoSkip()
 	return (settings.kbAnimSkipKey and GetKeyDown(settings.kbAnimSkipKey)) or (settings.padAnimSkipBtn and GetPadDown(settings.padAnimSkipBtn));
 end
 
 local ks = 200;
-function HandleSlowMo()
+local function HandleSlowMo()
 
 	if settings.kbToggleSlowMoKey and GetKeyDown(settings.kbToggleSlowMoKey) then
 		if curTimeScale == 1 then
@@ -344,7 +350,7 @@ function HandleSlowMo()
 	SetTimeScale(curTimeScale);
 end
 
-function PreRequestCamChange(args)
+local function PreRequestCamChange(args)
 
 
 	local type = sdk.to_int64(args[3]);
@@ -384,11 +390,11 @@ end
 
 ------------------------------------MONSTER DMG AND DEATH LOGIC--------------------------------------------
 
-function DefPost(retval)
+local function DefPost(retval)
 	return retval;
 end
 
-function PreDmgCalc(args)
+local function PreDmgCalc(args)
 
 	if settings.activateByEnemies then
 		--dont invalidate otomo and enemy attacks if this is on
@@ -427,7 +433,7 @@ function PreDmgCalc(args)
 	end
 end
 
-function PrePlayerAttack(args)
+local function PrePlayerAttack(args)
 
 	local enemy = sdk.to_managed_object(args[2]);
 	local isBoss = get_isBossEnemy:call(enemy);
@@ -445,7 +451,7 @@ function PrePlayerAttack(args)
 end
 
 
-function PreDie(args)
+local function PreDie(args)
 
 	if not settings.activateForAllMonsters then
 		--use end of quest detection logic instead
@@ -473,7 +479,7 @@ end
 
 
 
-function CheckHook()
+local function CheckHook()
 
 	if hooked then
 		return;
