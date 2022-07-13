@@ -92,6 +92,10 @@ local function GetMotionBlur()
 	return motionBlur;
 end
 
+local function SetMotionBlur(val)
+	GetMotionBlur():set_field("_ExposureFrame", val);
+end
+
 local function StartMotionBlur()
 
 	if isMotionBlur or not GetMotionBlur() then return end;
@@ -105,9 +109,6 @@ local function StartMotionBlur()
 	isMotionBlur = true;
 end
 
-local function SetMotionBlur(val)
-	GetMotionBlur():set_field("_ExposureFrame", val);
-end
 
 local function EndMotionBlur()
 
@@ -487,16 +488,9 @@ local function CheckHook()
 
 	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost);
 
-	if not settings.activateByAnyPlayer then
-		--I know there was definitely freezing happening while this one was on but not calcCore
-		sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
-	end
-	if not settings.activateByEnemies then
-		sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
-	end
-	if settings.activateForAllMonsters then
-		sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
-	end
+	sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
+	sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
+	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
 
 	hooked = true;
 end
@@ -511,7 +505,6 @@ end)
 
 
 -------------------------UI GARBAGE----------------------------------
-local needsReset = false
 
 re.on_draw_ui(function()
     local changed = false;
@@ -529,29 +522,11 @@ re.on_draw_ui(function()
 		changed, settings.slowMoDuration = imgui.slider_float("SlowMo Duration", settings.slowMoDuration, 0.1, 15.0);
 		changed, settings.slowMoRamp = imgui.slider_float("SlowMo Ramp", settings.slowMoRamp, 0.1, 10);
 
-		local potentiallyFreezingSettings = settings.activateForAllMonsters or not settings.activateByEnemies or not settings.activateByAnyPlayer;
-		if needsReset or potentiallyFreezingSettings then
-			imgui.new_line();
-			imgui.begin_rect();
 
-			if needsReset then
-				imgui.text("Settings changed requires reset scripts. Please do ScriptRunner->Reset Scripts or restart game.");
-			end
-
-			if potentiallyFreezingSettings then
-				imgui.text("Current settings may cause freezing in multiplayer when using MHR Overlay or Coavins DPS meter, potentially just in general.");
-			end
-
-			imgui.end_rect(10);
-			imgui.new_line();
-		end
 
 		changed, settings.activateForAllMonsters = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
-		needsReset = needsReset or changed;
 		changed, settings.activateByAnyPlayer = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
-		needsReset = needsReset or changed;
 		changed, settings.activateByEnemies = imgui.checkbox("Activate by Enemies", settings.activateByEnemies);
-		needsReset = needsReset or changed;
 		changed, settings.activateOnCapture = imgui.checkbox("Activate on Capture", settings.activateOnCapture);
 
 		
