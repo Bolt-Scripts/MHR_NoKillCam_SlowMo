@@ -549,6 +549,104 @@ re.on_draw_ui(function()
     end
 end)
 
+
+
+-------------------------Custom Mod UI COOLNESS----------------------------------
+
+--no idea how this works but google to the rescue
+--can use this to check if the api is available and do an alternative to avoid complaints from users
+function IsModuleAvailable(name)
+  if package.loaded[name] then
+    return true
+  else
+    for _, searcher in ipairs(package.searchers or package.loaders) do
+      local loader = searcher(name)
+      if type(loader) == 'function' then
+        package.preload[name] = loader
+        return true
+      end
+    end
+    return false
+  end
+end
+
+
+local apiPackageName = "ModOptionsMenu.ModMenuApi";
+local modUI = nil;
+
+if IsModuleAvailable(apiPackageName) then
+	modUI = require(apiPackageName);
+end
+
+
+if modUI then
+
+	local name = "No Kill-Cam + SlowMo Finishers";
+	local description = "It does what it says on the tin.";
+	modUI.OnMenu(name, description, function()
+	
+		
+		modUI.Header("Toggles")
+		settings.disableKillCam = modUI.Toggle("Disable KillCam", "Disables flying cam cutscene at end of quest.", settings.disableKillCam);
+		settings.disableOtherCams = modUI.Toggle("Disable Other Cams", "Disable cutscene for fast travel and return to village.", settings.disableOtherCams);
+		settings.disableUiOnKill = modUI.Toggle("Disable UI on Kill", "Turns off the UI when SlowMo activates.", settings.disableUiOnKill);
+		settings.useSlowMo = modUI.Toggle("Use SlowMo", "Use SlowMo.", settings.useSlowMo);
+		settings.useSlowMoInMP = modUI.Toggle("Use SlowMo Online", "It's mostly fine online.\nBut you can change it here.", settings.useSlowMoInMP);
+		settings.useMotionBlurInSlowMo = modUI.Toggle("Use Motion Blur In SlowMo", "Adds as much motion blur as the game can handle during SlowMo.", settings.useMotionBlurInSlowMo);
+	
+		modUI.Header("Slides")
+		settings.slowMoSpeed = modUI.SliderScaled("SlowMo Speed", "Percentage speed to use when slowing time.", settings.slowMoSpeed, 0, 1, 100);		
+		settings.slowMoDuration = modUI.Slider("SlowMo Duration", "Length of SlowMo in seconds.", settings.slowMoDuration, 1, 15);
+		settings.slowMoRamp = modUI.SliderScaled("SlowMo Ramp", "How quickly the SlowMo transitions.", settings.slowMoRamp, 0.1, 10, 10);
+		
+		modUI.Header("Activation Toggles");
+		settings.activateForAllMonsters = modUI.Toggle("Activate For All Monsters", "Whether or not to activate for all monsters,\nnot just the target.", settings.activateForAllMonsters);
+		settings.activateByAnyPlayer = modUI.Toggle("Activate By Any Player", "Whether or not to activate SlowMo if other players get the kill.", settings.activateByAnyPlayer);
+		settings.activateByEnemies = modUI.Toggle("Activate by Enemies", "Whether or not to activate SlowMo if a buddy or enemy gets the kill.", settings.activateByEnemies);
+		settings.activateOnCapture = modUI.Toggle("Activate on Capture", "(Theoretically) activate SlowMo on moster capture or not.", settings.activateOnCapture);
+	end);
+end
+
+
+
+
+
+
+
+
+
+
+
+
 re.on_config_save(function()
 	SaveSettings();
 end)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
