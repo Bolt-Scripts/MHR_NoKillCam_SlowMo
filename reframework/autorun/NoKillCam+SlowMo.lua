@@ -587,25 +587,30 @@ if modUI then
 	local description = "It does what it says on the tin.";
 	modUI.OnMenu(name, description, function()
 	
+		if modUI.version < 1.3 then
 		
-		modUI.Header("Toggles")
-		_,settings.disableKillCam = modUI.Toggle("Disable KillCam", settings.disableKillCam, "Disables flying cam cutscene at end of quest.");
-		_,settings.disableOtherCams = modUI.Toggle("Disable Other Cams", settings.disableOtherCams, "Disable cutscene for fast travel and return to village.");
-		_,settings.disableUiOnKill = modUI.Toggle("Disable UI on Kill", settings.disableUiOnKill, "Turns off the UI when SlowMo activates.");
-		_,settings.useSlowMo = modUI.Toggle("Use SlowMo", settings.useSlowMo, "Use SlowMo.");
-		_,settings.useSlowMoInMP = modUI.Toggle("Use SlowMo Online", settings.useSlowMoInMP, "It's mostly fine online.\nBut you can change it here.");
-		_,settings.useMotionBlurInSlowMo = modUI.Toggle("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo, "Adds as much motion blur as the game can handle during SlowMo.");
-	
-		modUI.Header("Slides")
-		_,settings.slowMoSpeed = modUI.FloatSlider("SlowMo Speed", settings.slowMoSpeed, 0.01, 1, "Percentage speed to use when slowing time.");		
-		_,settings.slowMoDuration = modUI.FloatSlider("SlowMo Duration", settings.slowMoDuration, 1, 15, "Length of SlowMo in seconds.");
-		_,settings.slowMoRamp = modUI.FloatSlider("SlowMo Ramp", settings.slowMoRamp, 0.1, 10, "How quickly the SlowMo transitions.");
+			modUI.Label("Please update mod menu API.");
 		
-		modUI.Header("Activation Toggles");
-		_,settings.activateForAllMonsters = modUI.Toggle("Activate For All Monsters", settings.activateForAllMonsters, "Whether or not to activate for all monsters,\nnot just the target.");
-		_,settings.activateByAnyPlayer = modUI.Toggle("Activate By Any Player", settings.activateByAnyPlayer, "Whether or not to activate SlowMo if other players get the kill.");
-		_,settings.activateByEnemies = modUI.Toggle("Activate by Enemies", settings.activateByEnemies, "Whether or not to activate SlowMo if a buddy or enemy gets the kill.");
-		_,settings.activateOnCapture = modUI.Toggle("Activate on Capture", settings.activateOnCapture, "(Theoretically) activate SlowMo on moster capture or not.");
+		else		
+			modUI.Header("Toggles")
+			_,settings.disableKillCam = modUI.Toggle("Disable KillCam", settings.disableKillCam, "Disables flying cam cutscene at end of quest.");
+			_,settings.disableOtherCams = modUI.Toggle("Disable Other Cams", settings.disableOtherCams, "Disable cutscene for fast travel and return to village.");
+			_,settings.disableUiOnKill = modUI.Toggle("Disable UI on Kill", settings.disableUiOnKill, "Turns off the UI when SlowMo activates.");
+			_,settings.useSlowMo = modUI.Toggle("Use SlowMo", settings.useSlowMo, "Use SlowMo.");
+			_,settings.useSlowMoInMP = modUI.Toggle("Use SlowMo Online", settings.useSlowMoInMP, "It's mostly fine online.\nBut you can change it here.");
+			_,settings.useMotionBlurInSlowMo = modUI.Toggle("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo, "Adds as much motion blur as the game can handle during SlowMo.");
+		
+			modUI.Header("Slides")
+			_,settings.slowMoSpeed = modUI.FloatSlider("SlowMo Speed", settings.slowMoSpeed, 0.01, 1, "Percentage speed to use when slowing time.");		
+			_,settings.slowMoDuration = modUI.FloatSlider("SlowMo Duration", settings.slowMoDuration, 1, 15, "Length of SlowMo in seconds.");
+			_,settings.slowMoRamp = modUI.FloatSlider("SlowMo Ramp", settings.slowMoRamp, 0.1, 10, "How quickly the SlowMo transitions.");
+			
+			modUI.Header("Activation Toggles");
+			_,settings.activateForAllMonsters = modUI.Toggle("Activate For All Monsters", settings.activateForAllMonsters, "Whether or not to activate for all monsters,\nnot just the target.");
+			_,settings.activateByAnyPlayer = modUI.Toggle("Activate By Any Player", settings.activateByAnyPlayer, "Whether or not to activate SlowMo if other players get the kill.");
+			_,settings.activateByEnemies = modUI.Toggle("Activate by Enemies", settings.activateByEnemies, "Whether or not to activate SlowMo if a buddy or enemy gets the kill.");
+			_,settings.activateOnCapture = modUI.Toggle("Activate on Capture", settings.activateOnCapture, "(Theoretically) activate SlowMo on moster capture or not.");
+		end
 	end);
 end
 
