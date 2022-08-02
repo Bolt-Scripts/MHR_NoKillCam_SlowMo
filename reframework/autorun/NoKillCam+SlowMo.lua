@@ -573,6 +573,7 @@ end
 
 local apiPackageName = "ModOptionsMenu.ModMenuApi";
 local modUI = nil;
+local DrawSlider;
 
 if IsModuleAvailable(apiPackageName) then
 	modUI = require(apiPackageName);
@@ -580,6 +581,11 @@ end
 
 
 if modUI then
+
+	if not modUI.FloatSlider then
+		modUI.FloatSlider = modUI.SliderScaled;
+	end
+	
 
 	local name = "No Kill-Cam + SlowMo Finishers";
 	local description = "It does what it says on the tin.";
@@ -595,9 +601,9 @@ if modUI then
 		settings.useMotionBlurInSlowMo = modUI.Toggle("Use Motion Blur In SlowMo", "Adds as much motion blur as the game can handle during SlowMo.", settings.useMotionBlurInSlowMo);
 	
 		modUI.Header("Slides")
-		settings.slowMoSpeed = modUI.SliderScaled("SlowMo Speed", "Percentage speed to use when slowing time.", settings.slowMoSpeed, 0, 1, 100);		
-		settings.slowMoDuration = modUI.Slider("SlowMo Duration", "Length of SlowMo in seconds.", settings.slowMoDuration, 1, 15);
-		settings.slowMoRamp = modUI.SliderScaled("SlowMo Ramp", "How quickly the SlowMo transitions.", settings.slowMoRamp, 0.1, 10, 10);
+		settings.slowMoSpeed = modUI.FloatSlider("SlowMo Speed", "Percentage speed to use when slowing time.", settings.slowMoSpeed, 0.01, 1, 100);		
+		settings.slowMoDuration = modUI.FloatSlider("SlowMo Duration", "Length of SlowMo in seconds.", settings.slowMoDuration, 1, 15, 1);
+		settings.slowMoRamp = modUI.FloatSlider("SlowMo Ramp", "How quickly the SlowMo transitions.", settings.slowMoRamp, 0.1, 10, 10);
 		
 		modUI.Header("Activation Toggles");
 		settings.activateForAllMonsters = modUI.Toggle("Activate For All Monsters", "Whether or not to activate for all monsters,\nnot just the target.", settings.activateForAllMonsters);
