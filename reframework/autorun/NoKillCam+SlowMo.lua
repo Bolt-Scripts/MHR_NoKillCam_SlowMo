@@ -126,7 +126,7 @@ end
 local function GetMonsterActivateType(isEndQuest)
 	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
 	if isEndQuest then
-		if (isRampage and settings.activateForAllMonsters) or (not settings.activateForAllMonsters) then
+		if (isRampage and settings.activateForAllMonsters) or (not isRampage) then
 			return true;
 		end
 	else
@@ -239,8 +239,7 @@ local function CheckShouldActivate()
 		end
 	end
 
-	if not activateOnCapture and lastHitEnemy then
-		
+	if not settings.activateOnCapture and lastHitEnemy then
 		local dieInfo = nil;
 		pcall(function() 
 			dieInfo = lastHitEnemy:call("getNowDieInfo");
@@ -250,10 +249,6 @@ local function CheckShouldActivate()
 		if dieInfo and dieInfo == 2 then
 			return;
 		end
-	end
-
-	if sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest") then
-		return;
 	end
 
 	if lastHitPlayerIdx < 0 then
@@ -380,6 +375,8 @@ local function PreRequestCamChange(args)
 			else
 				return;
 			end
+		elseif isSlowMo and endFlow <= 1 and endCapture == 2 then
+			return sdk.PreHookResult.SKIP_ORIGINAL;
 		elseif settings.disableOtherCams then
 			return sdk.PreHookResult.SKIP_ORIGINAL;
 		end
@@ -435,6 +432,11 @@ local function PreDmgCalc(args)
 end
 
 local function PrePlayerAttack(args)
+
+	if settings.activateByAnyPlayer then
+		lastHitPlayerIdx = 0
+		return;
+	end
 
 	local enemy = sdk.to_managed_object(args[2]);
 	local isBoss = get_isBossEnemy:call(enemy);
