@@ -126,12 +126,13 @@ end
 local function GetMonsterActivateType(isEndQuest)
 	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
 	if isEndQuest then
-		if (isRampage and settings.activateForAllMonsters) or (not isRampage) then
+		if (isRampage and settings.activateForAllMonsters) or (not settings.activateForAllMonsters) then
 			return true;
 		end
 	else
 		if settings.activateForAllMonsters then
 			if isRampage then
+				log.debug("Skip isRampage");
 				return false;
 			else
 				return true;
@@ -139,6 +140,7 @@ local function GetMonsterActivateType(isEndQuest)
 		end
 	end
 
+	log.debug("SkipDefault");
 	return false;
 end
 
@@ -204,10 +206,12 @@ end
 local function GetShouldUseSlowMo()
 
 	if not settings.useSlowMo then
+		log.debug("Skip no slowmo");
 		return false;
 	end
 
 	if not settings.useSlowMoInMP and GetQuestIsOnline() then
+		log.debug("Skip no online slowmo");
 		return false;
 	end
 
@@ -215,6 +219,7 @@ local function GetShouldUseSlowMo()
 end
 
 local function StartSlowMo()
+	log.debug("StartSlowmo");
 	useSlowMoThisTime = GetShouldUseSlowMo();
 	isSlowMo = true;
 	slowMoStartTime = GetTime();
@@ -223,23 +228,25 @@ end
 
 local function CheckShouldActivate()
 
-	--log.info("MONSTER KILL");
-	--log.info("lastHitPlayerIdx: "..lastHitPlayerIdx);
+	log.debug("MONSTER KILL");
+	log.debug("lastHitPlayerIdx: "..lastHitPlayerIdx);
 
 	if GetQuestIsOnline() then
 
 		--myself index is only really valid if online so yknow
 		local myIdx = GetLobbyManager():get_field("_myselfQuestIndex");
-		--log.info("MyQuestIdx: "..myIdx);
+		log.debug("MyQuestIdx: "..myIdx);
 
 		if not settings.activateByAnyPlayer then
 			if lastHitPlayerIdx ~= myIdx then
+				log.debug("Skip wrong player");
 				return;
 			end
 		end
 	end
 
 	if not settings.activateOnCapture and lastHitEnemy then
+		
 		local dieInfo = nil;
 		pcall(function() 
 			dieInfo = lastHitEnemy:call("getNowDieInfo");
@@ -247,11 +254,13 @@ local function CheckShouldActivate()
 
 		--2 == capture death
 		if dieInfo and dieInfo == 2 then
+			log.debug("SkipCapture");
 			return;
 		end
-	end
+	end	
 
 	if lastHitPlayerIdx < 0 then
+		log.debug("skip bad player");
 		return;
 	end
 
@@ -317,7 +326,7 @@ local function HandleSlowMo()
 	local curTime = GetTime();
 	
 	if CheckSlowMoSkip() then
-		log.info("SLOWMO: SKIPPED");
+		log.debug("SLOWMO: SKIPPED");
 		curTimeScale = 2;
 		EndSlowMo();
 		
@@ -348,9 +357,9 @@ end
 
 local function PreRequestCamChange(args)
 
-
+	
 	local type = sdk.to_int64(args[3]);
-	--re.msg(type);
+	log.debug("Switch cam type: "..type);
 	if type == 3 then
 		--type 3 == 'demo' camera type
 		--somewhat annoyingly this is used for many different cameras, but we'll turn that into a feature anyway
@@ -364,7 +373,16 @@ local function PreRequestCamChange(args)
 		--idk, this was just the first value i found that actually changes the instant you complete the quest
 		local endCapture = manager:get_field("_EndCaptureFlag");
 		
-		if endFlow <= 0 and endCapture == 2 then
+		log.debug("ENDFLOW: "..endFlow);
+		log.debug("ENDCAPTURE: "..endCapture);
+		
+		--endFlow 0 = Start
+		--endFlow 1 = WaitEndTimer
+		--endFlow 2 = InitCameraDemo		
+		--endCapture 0 = Wait
+		--endCapture 1 = Request
+		--endCapture 2 = CaptureEnd
+		if endFlow <= 1 and endCapture == 2 then
 			
 			if GetMonsterActivateType(true) then
 				CheckShouldActivate();
@@ -375,8 +393,6 @@ local function PreRequestCamChange(args)
 			else
 				return;
 			end
-		elseif isSlowMo and endFlow <= 1 and endCapture == 2 then
-			return sdk.PreHookResult.SKIP_ORIGINAL;
 		elseif settings.disableOtherCams then
 			return sdk.PreHookResult.SKIP_ORIGINAL;
 		end
@@ -434,7 +450,7 @@ end
 local function PrePlayerAttack(args)
 
 	if settings.activateByAnyPlayer then
-		lastHitPlayerIdx = 0
+		lastHitPlayerIdx = 0;
 		return;
 	end
 
@@ -488,12 +504,14 @@ local function CheckHook()
 		return;
 	end
 
-	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost);
+	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost, true);
 
 	sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
 	sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
 	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
 
+	log.debug("SlowmoHook");
+	
 	hooked = true;
 end
 
@@ -584,7 +602,6 @@ end
 
 if modUI then
 	
-
 	local name = "No Kill-Cam + SlowMo Finishers";
 	local description = "It does what it says on the tin.";
 	modUI.OnMenu(name, description, function()
@@ -593,14 +610,15 @@ if modUI then
 		
 			modUI.Label("Please update mod menu API.");
 		
-		else		
-			modUI.Header("Toggles")
+		else
+			modUI.Header("Toggles");
 			_,settings.disableKillCam = modUI.Toggle("Disable KillCam", settings.disableKillCam, "Disables flying cam cutscene at end of quest.");
 			_,settings.disableOtherCams = modUI.Toggle("Disable Other Cams", settings.disableOtherCams, "Disable cutscene for fast travel and return to village.");
 			_,settings.disableUiOnKill = modUI.Toggle("Disable UI on Kill", settings.disableUiOnKill, "Turns off the UI when SlowMo activates.");
 			_,settings.useSlowMo = modUI.Toggle("Use SlowMo", settings.useSlowMo, "Use SlowMo.");
 			_,settings.useSlowMoInMP = modUI.Toggle("Use SlowMo Online", settings.useSlowMoInMP, "It's mostly fine online.\nBut you can change it here.");
 			_,settings.useMotionBlurInSlowMo = modUI.Toggle("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo, "Adds as much motion blur as the game can handle during SlowMo.");
+			
 		
 			modUI.Header("Slides")
 			_,settings.slowMoSpeed = modUI.FloatSlider("SlowMo Speed", settings.slowMoSpeed, 0.01, 1, "Percentage speed to use when slowing time.");		
@@ -611,7 +629,8 @@ if modUI then
 			_,settings.activateForAllMonsters = modUI.Toggle("Activate For All Monsters", settings.activateForAllMonsters, "Whether or not to activate for all monsters,\nnot just the target.");
 			_,settings.activateByAnyPlayer = modUI.Toggle("Activate By Any Player", settings.activateByAnyPlayer, "Whether or not to activate SlowMo if other players get the kill.");
 			_,settings.activateByEnemies = modUI.Toggle("Activate by Enemies", settings.activateByEnemies, "Whether or not to activate SlowMo if a buddy or enemy gets the kill.");
-			_,settings.activateOnCapture = modUI.Toggle("Activate on Capture", settings.activateOnCapture, "(Theoretically) activate SlowMo on moster capture or not.");
+			_,settings.activateOnCapture = modUI.Toggle("Activate on Capture", settings.activateOnCapture, "(Theoretically) activate SlowMo on moster capture or not.");			
+			
 		end
 	end);
 end
