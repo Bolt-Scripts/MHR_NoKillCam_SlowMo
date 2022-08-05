@@ -54,6 +54,7 @@ local get_UpTimeSecond = app_type:get_method("get_UpTimeSecond");
 local get_ElapsedSecond = app_type:get_method("get_ElapsedSecond");
 
 local guiManager = nil;
+local questManager = nil;
 local lobbyManager = nil;
 local motionBlur = nil;
 local hwKB = nil;
@@ -126,17 +127,13 @@ end
 local function GetMonsterActivateType(isEndQuest)
 	local isRampage = sdk.get_managed_singleton("snow.QuestManager"):call("isHyakuryuQuest");
 	if isEndQuest then
-		if (isRampage and settings.activateForAllMonsters) or (not settings.activateForAllMonsters) then
+		return true;		
+	elseif settings.activateForAllMonsters then
+		if isRampage then
+			log.debug("Skip isRampage");
+			return false;
+		else
 			return true;
-		end
-	else
-		if settings.activateForAllMonsters then
-			if isRampage then
-				log.debug("Skip isRampage");
-				return false;
-			else
-				return true;
-			end
 		end
 	end
 
@@ -228,7 +225,7 @@ end
 
 local function CheckShouldActivate()
 
-	log.debug("MONSTER KILL");
+	log.debug("CHECK SLOWMO ACTIVATE");
 	log.debug("lastHitPlayerIdx: "..lastHitPlayerIdx);
 
 	if GetQuestIsOnline() then
@@ -252,6 +249,8 @@ local function CheckShouldActivate()
 			dieInfo = lastHitEnemy:call("getNowDieInfo");
 		end);
 
+		log.debug("CAPTURE DIE INFO: ", dieInfo);
+		
 		--2 == capture death
 		if dieInfo and dieInfo == 2 then
 			log.debug("SkipCapture");
@@ -364,14 +363,13 @@ local function PreRequestCamChange(args)
 		--type 3 == 'demo' camera type
 		--somewhat annoyingly this is used for many different cameras, but we'll turn that into a feature anyway
 
-		local manager = sdk.get_managed_singleton("snow.QuestManager");
-		if not manager then
-			return;
+		if not questManager then
+			questManager = sdk.get_managed_singleton("snow.QuestManager");
 		end
 		
-		local endFlow = manager:get_field("_EndFlow");
+		local endFlow = questManager:get_field("_EndFlow");
 		--idk, this was just the first value i found that actually changes the instant you complete the quest
-		local endCapture = manager:get_field("_EndCaptureFlag");
+		local endCapture = questManager:get_field("_EndCaptureFlag");
 		
 		log.debug("ENDFLOW: "..endFlow);
 		log.debug("ENDCAPTURE: "..endCapture);
@@ -383,10 +381,6 @@ local function PreRequestCamChange(args)
 		--endCapture 1 = Request
 		--endCapture 2 = CaptureEnd
 		if endFlow <= 1 and endCapture == 2 then
-			
-			if GetMonsterActivateType(true) then
-				CheckShouldActivate();
-			end
 			
 			if settings.disableKillCam then				
 				return sdk.PreHookResult.SKIP_ORIGINAL;
@@ -470,30 +464,47 @@ local function PrePlayerAttack(args)
 end
 
 
+local dieEnemy;
 local function PreDie(args)
-
-	if not settings.activateForAllMonsters then
-		--use end of quest detection logic instead
-		return;
-	end
-
-	local enemy = sdk.to_managed_object(args[2]);
-	local isBoss = get_isBossEnemy:call(enemy);
-
-	if isBoss then
-		dieInfo = enemy:call("getNowDieInfo");
-		if dieInfo == 65535 then
-			--dont trigger for non death related leavings
-			return;
-		end
-
-		lastHitEnemy = enemy;
-		if GetMonsterActivateType(false) then
-			CheckShouldActivate();
-		end
-	end
+	dieEnemy = sdk.to_managed_object(args[2]);	
 end
 
+local function PostDie(retval)
+	
+	
+	local isBoss = get_isBossEnemy:call(dieEnemy);
+	if isBoss then
+		dieInfo = dieEnemy:call("getNowDieInfo");
+		if dieInfo == 65535 then
+			--dont trigger for non death related leavings
+			return retval;
+		end
+		
+		local isEndQuest = false;
+		if not questManager then
+			questManager = sdk.get_managed_singleton("snow.QuestManager");
+		end
+		
+		local endFlow = questManager:get_field("_EndFlow");
+		local endCapture = questManager:get_field("_EndCaptureFlag");
+		
+		log.debug("DIE ENDFLOW: "..endFlow);
+		log.debug("DIE ENDCAPTURE: "..endCapture);
+		
+		isEndQuest = endCapture >= 2;		
+		
+		if not settings.activateForAllMonsters and not isEndQuest then
+			return retval;
+		end
+		
+		lastHitEnemy = dieEnemy;
+		if GetMonsterActivateType(isEndQuest) then
+			CheckShouldActivate();
+		end
+	end	
+
+	return retval;
+end
 
 
 
@@ -504,11 +515,11 @@ local function CheckHook()
 		return;
 	end
 
-	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost, true);
+	sdk.hook(sdk.find_type_definition("snow.CameraManager"):get_method("RequestActive"), PreRequestCamChange, DefPost, false);
 
 	sdk.hook(enemyType:get_method("getAdjustPhysicalDamageRateBySkill"), PrePlayerAttack, DefPost, true);
 	sdk.hook(enemyType:get_method("calcDamageCore"), PreDmgCalc, DefPost, true);
-	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, DefPost, true);
+	sdk.hook(enemyType:get_method("questEnemyDie"), PreDie, PostDie, true);
 
 	log.debug("SlowmoHook");
 	
