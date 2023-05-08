@@ -4,7 +4,7 @@
 
 ---------------------------Settings----------------------
 
-local settings = {
+local settings = json.load_file("NoKillCam+SlowMo_settings.json") or {
 	disableKillCam = true; --Disables the hover view of the monster from different angles after killing them
 	disableOtherCams = false; --Disables fast travel cutscene cam and end of quest cam (like petting your buddies etc.) slightly glitchy with fast travel camera transitions
 
@@ -77,7 +77,7 @@ local function LoadSettings()
 end
 
 -- Load setting first
-LoadSettings();
+--LoadSettings();
 
 local function GetMotionBlur()
 	if not motionBlur then
@@ -540,14 +540,25 @@ end)
 re.on_draw_ui(function()
     local changed = false;
 
+    local changedKillCam = settings.disableKillCam;
+    local changedOtherCams = settings.disableOtherCams;
+    local changedUiOnKill = settings.disableUiOnKill;
+    local changedSlowMo = settings.useSlowMo;
+    local changedSlowMoInMP = settings.useSlowMoInMP;
+    local changedMotionBlurInSlowMo = settings.useMotionBlurInSlowMo;
+    local changedForAllMonsters = settings.activateForAllMonsters;
+    local changedByAnyPlayer = settings.activateByAnyPlayer;
+    local changedByEnemies = settings.activateByEnemies;
+    local changedOnCapture = settings.activateOnCapture;
+
     if imgui.tree_node("No Kill-Cam + SlowMo") then
 	 
-		changed, settings.disableKillCam = imgui.checkbox("Disable KillCam", settings.disableKillCam);
-		changed, settings.disableOtherCams = imgui.checkbox("Disable Other Cams", settings.disableOtherCams);
-		changed, settings.disableUiOnKill = imgui.checkbox("Disable UI on Kill", settings.disableUiOnKill);
-		changed, settings.useSlowMo = imgui.checkbox("Use SlowMo", settings.useSlowMo);
-		changed, settings.useSlowMoInMP = imgui.checkbox("Use SlowMo Online", settings.useSlowMoInMP);
-		changed, settings.useMotionBlurInSlowMo = imgui.checkbox("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo);
+		a, settings.disableKillCam = imgui.checkbox("Disable KillCam", settings.disableKillCam);
+		a, settings.disableOtherCams = imgui.checkbox("Disable Other Cams", settings.disableOtherCams);
+		a, settings.disableUiOnKill = imgui.checkbox("Disable UI on Kill", settings.disableUiOnKill);
+		a, settings.useSlowMo = imgui.checkbox("Use SlowMo", settings.useSlowMo);
+		a, settings.useSlowMoInMP = imgui.checkbox("Use SlowMo Online", settings.useSlowMoInMP);
+		a, settings.useMotionBlurInSlowMo = imgui.checkbox("Use Motion Blur In SlowMo", settings.useMotionBlurInSlowMo);
 
 		changed, settings.slowMoSpeed = imgui.slider_float("SlowMo Speed", settings.slowMoSpeed, 0.01, 1.0);
 		changed, settings.slowMoDuration = imgui.slider_float("SlowMo Duration", settings.slowMoDuration, 0.1, 15.0);
@@ -555,11 +566,14 @@ re.on_draw_ui(function()
 
 
 
-		changed, settings.activateForAllMonsters = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
-		changed, settings.activateByAnyPlayer = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
-		changed, settings.activateByEnemies = imgui.checkbox("Activate by Enemies", settings.activateByEnemies);
-		changed, settings.activateOnCapture = imgui.checkbox("Activate on Capture", settings.activateOnCapture);
+		a, settings.activateForAllMonsters = imgui.checkbox("Activate For All Monsters", settings.activateForAllMonsters);
+		a, settings.activateByAnyPlayer = imgui.checkbox("Activate By Any Player", settings.activateByAnyPlayer);
+		a, settings.activateByEnemies = imgui.checkbox("Activate by Enemies", settings.activateByEnemies);
+		a, settings.activateOnCapture = imgui.checkbox("Activate on Capture", settings.activateOnCapture);
 
+		if changed or changedKillCam ~= settings.disableKillCam or changedOtherCams ~= settings.disableOtherCams or changedUiOnKill ~= settings.disableUiOnKill or changedSlowMo ~= settings.useSlowMo or changedSlowMoInMP ~= settings.useSlowMoInMP or changedMotionBlurInSlowMo ~= settings.useMotionBlurInSlowMo or changedForAllMonsters ~= settings.activateForAllMonsters or changedByAnyPlayer ~= settings.activateByAnyPlayer or changedByEnemies ~= settings.activateByEnemies or changedOnCapture ~= settings.activateOnCapture then
+			SaveSettings();
+		end
 		
 
 		--[[
